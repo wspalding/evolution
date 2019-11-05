@@ -43,3 +43,7 @@ def reproduce(model_list, num_children):
     # each child is a new model that had the best combination of features as given by NN + random variations
     children = children.sort(sum(parent1.score, parent2.score))[0:num_children]
     return children
+
+sources:
+https://blog.coast.ai/lets-evolve-a-neural-network-with-a-genetic-algorithm-code-included-8809bece164
+https://github.com/harvitronix/neural-network-genetic-algorithm

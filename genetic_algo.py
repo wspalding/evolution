@@ -17,6 +17,7 @@ class Genetic_algorithm():
         self.max_age = kwargs.get('max_age', self.num_generations)
         self.train_epochs = kwargs.get('train_epochs', 1000)
         self.num_children = kwargs.get('num_children', 2)
+        self.num_mutations = kwargs.get('num_mutations', 1)
 
         # save results in pandas dataframe
         self.columns = {'network_id':[] ,'network_score(acc)':[], 'network_info':[], 'time_to_train(ms)':[], 'starting_generation':[], 'final_age':[]}
@@ -100,7 +101,7 @@ class Genetic_algorithm():
                 optimizer=random.choice([parent1.optimizer, parent2.optimizer]),
                 starting_generation=self.current_generation,
             )
-            child.mutate(1)
+            child.mutate(self.num_mutations)
             children.append(child)
         return children
 
@@ -121,20 +122,21 @@ class Genetic_algorithm():
         for model in self.population:
             if model.train_time > 0:
                 self.save_network_info_to_dataframe(model)
+        self.results.sort_values(by=['network_score(acc)'])
         self.results.to_csv(self.save_file)
 
     def save_network_info_to_dataframe(self, network):
         self.results = self.results.append({
             'network_id': network.id,
-            'network_score': network.accuracy,
+            'network_score(acc)': network.accuracy,
             'network_info': [
                 network.num_layers,
                 network.layer_size,
                 network.dropout,
                 network.activation,
-                network.optimizer
+                network.optimizer,
                 ],
-            'time_to_train': network.train_time,
+            'time_to_train(ms)': network.train_time,
             'starting_generation': network.starting_generation,
             'final_age': network.age,
             }, ignore_index=True)
