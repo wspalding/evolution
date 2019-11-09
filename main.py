@@ -21,7 +21,7 @@ evo = Genetic_algorithm(starting_population=starting_population,
                         num_generations=100,
                         train_epochs=10000,
                         max_poulation=10,
-                        learning_treshold=0.8)
+                        learning_threshold=0.8)
 final_models = evo.evolve(dataset)
 # print('models: ', final_models)
 # print(len(final_models))

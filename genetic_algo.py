@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping
+from network import Network_info
 import operator
 import pandas as pd
 import random
@@ -19,7 +20,7 @@ class Genetic_algorithm():
         self.train_epochs = kwargs.get('train_epochs', 1000)
         self.num_children = kwargs.get('num_children', 2)
         self.num_mutations = kwargs.get('num_mutations', 1)
-        self.learning_treshold = kwargs.get('learning_treshold', 1)
+        self.learning_threshold = kwargs.get('learning_threshold', 1)
 
         # save results in pandas dataframe
         self.columns = {'network_id':[] ,'network_score(acc)':[], 'network_info':[], 'time_to_train(ms)':[], 'starting_generation':[], 'final_age':[]}
@@ -46,6 +47,7 @@ class Genetic_algorithm():
                 rankings.append(model_dict) # 1 is accuracy. 0 is loss.
                 print ("model: {},\nscore:{}\n".format(model_dict, score))
             else: # other datasets go here
+            # TODO: implament passing scoring function to train & score
                 pass
             end = datetime.datetime.now()
             delta = end - start
@@ -105,6 +107,8 @@ class Genetic_algorithm():
                 optimizer=random.choice([parent1.optimizer, parent2.optimizer]),
                 starting_generation=self.current_generation,
             )
+            child.valid_optimizers = parent1.valid_optimizers
+            child.valid_activations = parent2.valid_activations
             while(self.is_duplicate(child)):
                 child.mutate(self.num_mutations)
             children.append(child)
@@ -124,7 +128,7 @@ class Genetic_algorithm():
             ranks = self.train_and_score(dataset)
             done = False
             for m in rankes:
-                if m.accuracy >= self.learning_treshold:
+                if m.accuracy >= self.learning_threshold:
                     done = True
                     break
             if done:
@@ -159,49 +163,3 @@ class Genetic_algorithm():
             'starting_generation': network.starting_generation,
             'final_age': network.age,
             }, ignore_index=True)
-
-
-# use class instead of dict to store network data
-class Network_info():
-    def __init__(self, **kwargs):
-        self.id = kwargs.get('id', uuid.uuid4())
-        self.num_layers = kwargs.get('num_layers', 1)
-        self.layer_size = kwargs.get('layer_size', 1)
-        self.dropout = kwargs.get('dropout', 0.2)
-        self.valid_activations = ['relu', 'softmax', 'sigmoid', 'tanh']
-        self.activation = kwargs.get('activation', 'relu')
-        self.valid_optimizers = ['SGD', 'Adam']
-        self.optimizer = kwargs.get('optimizer', 'SGD')
-        self.starting_generation = kwargs.get('starting_generation', 0)
-        self.age = kwargs.get('age', 0)
-        self.accuracy = -1
-        self.train_time = -1
-
-    def mutate(self, num_mutations):
-        for i in range(num_mutations):
-            attribute = random.randint(0,8)
-            if attribute == 1:
-                self.num_layers = max(self.num_layers + random.choice([1,-1]), 1)
-            elif attribute == 2:
-                self.layer_size = max(self.layer_size + random.choice([1,-1]), 1)
-            elif attribute == 3:
-                self.dropout = max(self.dropout + random.choice([0.01,-0.01]), 0)
-            elif attribute == 4:
-                o = random.randint(0,len(self.valid_optimizers)-1)
-                self.optimizer = self.valid_optimizers[o]
-            elif attribute == 5:
-                a = random.randint(0,len(self.valid_activations)-1)
-                self.activation = self.valid_activations[a]
-            elif attribute == 6:
-                # mutate 1 more time
-                # print('called')
-                i -= 2
-            else:
-                # dont mutate
-                pass
-
-    def __str__(self):
-        return "id: {},\n\tnum_layers:{},\n\tlayer_size:{},\n\tdropout:{},\n\toptimizer:{},\n\tactivation:{},\n\tgeneration:{},\n\tage:{}".format(self.id, self.num_layers, self.layer_size, self.dropout, self.optimizer, self.activation, self.starting_generation, self.age)
-
-    def __eq__(self, other):
-        return (self.num_layers == other.num_layers) and (self.layer_size == other.layer_size) and (self.dropout == other.dropout) and (self.optimizer == other.optimizer) and (self.activation == other.activation)
