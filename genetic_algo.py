@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.callbacks import EarlyStopping
 import operator
 import pandas as pd
 import random
@@ -18,12 +19,13 @@ class Genetic_algorithm():
         self.train_epochs = kwargs.get('train_epochs', 1000)
         self.num_children = kwargs.get('num_children', 2)
         self.num_mutations = kwargs.get('num_mutations', 1)
+        self.learning_treshold = kwargs.get('learning_treshold', 1)
 
         # save results in pandas dataframe
         self.columns = {'network_id':[] ,'network_score(acc)':[], 'network_info':[], 'time_to_train(ms)':[], 'starting_generation':[], 'final_age':[]}
         self.results = pd.DataFrame(self.columns)
 
-        self.save_file = kwargs.get('save_file', 'results/results_{}.csv'.format(uuid.uuid4()))
+        self.save_file = kwargs.get('save_file', 'results/results_{}.csv'.format(datetime.datetime.now()))
         self.save_data = kwargs.get('save_data', True)
 
     def train_and_score(self, dataset):
@@ -36,11 +38,13 @@ class Genetic_algorithm():
                 model.fit(dataset['x_train'], dataset['y_train'],
                 batch_size=dataset['batch_size'],
                 epochs=self.train_epochs,  # using early stopping, so no real limit
-                verbose=1,
+                verbose=0,
+                callbacks=[EarlyStopping(patience=5)],
                 validation_data=(dataset['x_test'], dataset['y_test']))
                 score = model.evaluate(dataset['x_test'], dataset['y_test'], verbose=0)
                 model_dict.accuracy = score[1]
                 rankings.append(model_dict) # 1 is accuracy. 0 is loss.
+                print ("model: {},\nscore:{}\n".format(model_dict, score))
             else: # other datasets go here
                 pass
             end = datetime.datetime.now()
@@ -75,8 +79,8 @@ class Genetic_algorithm():
                 if self.save_data:
                     self.save_network_info_to_dataframe(i)
 
-        within_age.sort(key=lambda x: x.accuracy)
-        self.population = within_age[0:50]
+        within_age.sort(key=lambda x: x.accuracy, reverse=True)
+        self.population = within_age[0:self.max_poulation]
         for i in within_age[50:]:
             if self.save_data:
                 self.save_network_info_to_dataframe(i)
@@ -101,15 +105,30 @@ class Genetic_algorithm():
                 optimizer=random.choice([parent1.optimizer, parent2.optimizer]),
                 starting_generation=self.current_generation,
             )
-            child.mutate(self.num_mutations)
+            while(self.is_duplicate(child)):
+                child.mutate(self.num_mutations)
             children.append(child)
         return children
+
+    def is_duplicate(self, network_info):
+        for p in self.population:
+            if p == network_info:
+                # print("made duplicate")
+                return True
+        return False
 
     # run whole process
     def evolve(self, dataset):
         for i in range(self.num_generations):
-            print('generation: ', i, '\npopulation size: ', len(self.population))
+            print('generation: ', i, '\npopulation size: ', len(self.population), '\n')
             ranks = self.train_and_score(dataset)
+            done = False
+            for m in rankes:
+                if m.accuracy >= self.learning_treshold:
+                    done = True
+                    break
+            if done:
+                break
             self.cull(ranks)
             new_children = self.create_children()
             self.population.extend(new_children)
@@ -149,9 +168,9 @@ class Network_info():
         self.num_layers = kwargs.get('num_layers', 1)
         self.layer_size = kwargs.get('layer_size', 1)
         self.dropout = kwargs.get('dropout', 0.2)
-        self.valid_activations = ['relu', 'softmax', 'sigmoid', 'tanh', 'elu']
+        self.valid_activations = ['relu', 'softmax', 'sigmoid', 'tanh']
         self.activation = kwargs.get('activation', 'relu')
-        self.valid_optimizers = ['SGD', 'Adam', 'RMSprop']
+        self.valid_optimizers = ['SGD', 'Adam']
         self.optimizer = kwargs.get('optimizer', 'SGD')
         self.starting_generation = kwargs.get('starting_generation', 0)
         self.age = kwargs.get('age', 0)
@@ -162,9 +181,9 @@ class Network_info():
         for i in range(num_mutations):
             attribute = random.randint(0,8)
             if attribute == 1:
-                self.num_layers = max(self.num_layers + random.choice([1,-1]), 0)
+                self.num_layers = max(self.num_layers + random.choice([1,-1]), 1)
             elif attribute == 2:
-                self.layer_size = max(self.layer_size + random.choice([1,-1]), 0)
+                self.layer_size = max(self.layer_size + random.choice([1,-1]), 1)
             elif attribute == 3:
                 self.dropout = max(self.dropout + random.choice([0.01,-0.01]), 0)
             elif attribute == 4:
@@ -180,3 +199,9 @@ class Network_info():
             else:
                 # dont mutate
                 pass
+
+    def __str__(self):
+        return "id: {},\n\tnum_layers:{},\n\tlayer_size:{},\n\tdropout:{},\n\toptimizer:{},\n\tactivation:{},\n\tgeneration:{},\n\tage:{}".format(self.id, self.num_layers, self.layer_size, self.dropout, self.optimizer, self.activation, self.starting_generation, self.age)
+
+    def __eq__(self, other):
+        return (self.num_layers == other.num_layers) and (self.layer_size == other.layer_size) and (self.dropout == other.dropout) and (self.optimizer == other.optimizer) and (self.activation == other.activation)
