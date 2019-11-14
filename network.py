@@ -1,3 +1,7 @@
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.callbacks import EarlyStopping
 import random
 import uuid
 import datetime
@@ -41,6 +45,12 @@ class Network_info():
             else:
                 # dont mutate
                 pass
+
+    def create_and_compile_network(self, input_shape, output_shape)
+        model = Sequential()
+        for l in self.layer_info:
+            pass
+        return model
 
     def __str__(self):
         return "id: {},\n\tnum_layers:{},\n\tlayer_size:{},\n\tdropout:{},\n\toptimizer:{},\n\tactivation:{},\n\tgeneration:{},\n\tage:{}".format(self.id, self.num_layers, self.layer_size, self.dropout, self.optimizer, self.activation, self.starting_generation, self.age)

@@ -21,6 +21,8 @@ class Genetic_algorithm():
         self.num_children = kwargs.get('num_children', 2)
         self.num_mutations = kwargs.get('num_mutations', 1)
         self.learning_threshold = kwargs.get('learning_threshold', 1)
+        self.train_function = kwargs.get('train_function', self.default_training_function)
+        self.evaluate_function = kwargs.get('evaluate_function', self.default_evaluate_function)
 
         # save results in pandas dataframe
         self.columns = {'network_id':[] ,'network_score(acc)':[], 'network_info':[], 'time_to_train(ms)':[], 'starting_generation':[], 'final_age':[]}
@@ -33,28 +35,44 @@ class Genetic_algorithm():
         rankings = []
         self.current_generation += 1
         for model_dict in self.population:
+            ## TODO: make make_network_from_dict a network_info function
             model = self.make_network_from_dict(model_dict, dataset['input_shape'], dataset['num_classes'])
             start = datetime.datetime.now()
-            if dataset['name'] == 'cifar10':
-                model.fit(dataset['x_train'], dataset['y_train'],
-                batch_size=dataset['batch_size'],
-                epochs=self.train_epochs,  # using early stopping, so no real limit
-                verbose=0,
-                callbacks=[EarlyStopping(patience=5)],
-                validation_data=(dataset['x_test'], dataset['y_test']))
-                score = model.evaluate(dataset['x_test'], dataset['y_test'], verbose=0)
-                model_dict.accuracy = score[1]
-                rankings.append(model_dict) # 1 is accuracy. 0 is loss.
-                print ("model: {},\nscore:{}\n".format(model_dict, score))
-            else: # other datasets go here
+            # if dataset['name'] == 'cifar10':
+            #     model.fit(dataset['x_train'], dataset['y_train'],
+            #     batch_size=dataset['batch_size'],
+            #     epochs=self.train_epochs,  # using early stopping, so no real limit
+            #     verbose=0,
+            #     callbacks=[EarlyStopping(patience=5)],
+            #     validation_data=(dataset['x_test'], dataset['y_test']))
+            #     score = model.evaluate(dataset['x_test'], dataset['y_test'], verbose=0)
+            # else: # other datasets go here
+            model = self.train_function(model, dataset, self.train_epochs)
+            score = self.evaluate_function(model, dataset)
             # TODO: implament passing scoring function to train & score
-                pass
+                # pass
+            model_dict.accuracy = score[1]
+            rankings.append(model_dict) # 1 is accuracy. 0 is loss.
+            print ("model: {},\nscore:{}\n".format(model_dict, score))
             end = datetime.datetime.now()
             delta = end - start
             model_dict.train_time = int(delta.total_seconds() * 1000)
             model_dict.age += 1 # incrament age
         # rankings.sort(key=operator.itemgetter(1))
         return rankings
+
+    def default_training_function(self, model, dataset, epochs, **kwargs):
+        model.fit(dataset['x_train'], dataset['y_train'],
+        batch_size=dataset['batch_size'],
+        epochs=epochs,  # using early stopping, so no real limit
+        verbose=0,
+        callbacks=[EarlyStopping(patience=5)],
+        validation_data=(dataset['x_test'], dataset['y_test']))
+        return model
+
+    def default_evaluate_function(self, model, dataset, **kwargs):
+        score = model.evaluate(dataset['x_test'], dataset['y_test'], verbose=0)
+        return score
 
     def make_network_from_dict(self, network_info, input_shape, output_shape):
         model = Sequential()
@@ -127,7 +145,7 @@ class Genetic_algorithm():
             print('generation: ', i, '\npopulation size: ', len(self.population), '\n')
             ranks = self.train_and_score(dataset)
             done = False
-            for m in rankes:
+            for m in ranks:
                 if m.accuracy >= self.learning_threshold:
                     done = True
                     break

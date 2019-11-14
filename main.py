@@ -6,7 +6,7 @@ print("GPU Available: ", tf.test.is_gpu_available())
 
 nb_classes, batch_size, input_shape, x_train, x_test, y_train, y_test = cfar10.get_cifar10()
 dataset = {
-        'name': 'cifar10',
+        # 'name': 'cifar10',
         'num_classes': nb_classes,
         'batch_size': batch_size,
         'input_shape': input_shape,
@@ -18,8 +18,8 @@ dataset = {
 
 starting_population = [Network_info()]
 evo = Genetic_algorithm(starting_population=starting_population,
-                        num_generations=100,
-                        train_epochs=10000,
+                        num_generations=2,
+                        train_epochs=1,
                         max_poulation=10,
                         learning_threshold=0.8)
 final_models = evo.evolve(dataset)
